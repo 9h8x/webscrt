@@ -1,0 +1,55 @@
+---
+export interface Props {
+  id: string;
+  content: string;
+  school: string;
+  title: string;
+  created_at: string;
+}
+
+const { id, content, school, title, created_at } = Astro.props;
+const formattedDate = new Date(created_at).toLocaleDateString();
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+import { buttonVariants } from "./ui/button";
+import { SchoolIcon, CalendarIcon, Captions } from "lucide-react";
+---
+
+<Card>
+  <CardHeader>
+    <CardTitle>{title}</CardTitle>
+    <CardDescription>
+      <div class="flex items-center">
+        <SchoolIcon className="mr-1 size-5" />
+        {/* Add margin to the right of the icon */}
+        <span>{school}</span>
+      </div>  
+      <div class="flex items-center">
+        <CalendarIcon className="mr-1  size-5" />
+        {/* Add margin to the right of the icon */}
+        <span>{formattedDate}</span>
+      </div>
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <p>
+      {content.length > 100 ? content.substring(0, 100) + "..." : content}
+    </p>
+  </CardContent>
+  <CardFooter className="mt-auto">
+    <a
+      href={`/post/${id}`}
+      class={`${buttonVariants({ variant: "outline" })} w-full hover:bg-secondary transition-colors duration-300`}
+    >
+      Leer
+    </a>
+  </CardFooter>
+</Card>

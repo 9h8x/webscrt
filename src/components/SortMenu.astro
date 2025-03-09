@@ -1,0 +1,73 @@
+---
+import { ChevronDown } from 'lucide-react';
+import { buttonVariants } from "@/components/ui/button";
+
+interface Props {
+  currentSort: string;
+  options: {
+    value: string;
+    label: string;
+  }[];
+}
+
+const { currentSort, options } = Astro.props;
+
+// Get the current label
+const currentLabel = options.find(option => option.value === currentSort)?.label || options[0].label;
+---
+
+<div class="relative inline-block text-left">
+  <div>
+    <button 
+      type="button" 
+      class={`${buttonVariants({ variant: "outline" })} flex items-center justify-between w-48`}
+      id="sort-menu-button" 
+      aria-expanded="true" 
+      aria-haspopup="true"
+    >
+      <span class="truncate">{currentLabel}</span>
+      <ChevronDown className="h-4 w-4 ml-2" />
+    </button>
+  </div>
+
+  <div 
+    class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800" 
+    role="menu" 
+    aria-orientation="vertical" 
+    aria-labelledby="sort-menu-button" 
+    tabindex="-1"
+    id="sort-menu"
+  >
+    <div class="py-1" role="none">
+      {options.map(option => (
+        <a 
+          href={`?sort=${option.value}`} 
+          class={`block px-4 py-2 text-sm ${currentSort === option.value ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300'} hover:bg-gray-100 dark:hover:bg-gray-700`} 
+          role="menuitem" 
+          tabindex="-1"
+        >
+          {option.label}
+        </a>
+      ))}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Toggle dropdown menu
+  const button = document.getElementById('sort-menu-button');
+  const menu = document.getElementById('sort-menu');
+  
+  if (button && menu) {
+    button.addEventListener('click', () => {
+      menu.classList.toggle('hidden');
+    });
+    
+    // Close the dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+      if (!button.contains(event.target as Node) && !menu.contains(event.target as Node)) {
+        menu.classList.add('hidden');
+      }
+    });
+  }
+</script>

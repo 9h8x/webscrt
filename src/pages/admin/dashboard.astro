@@ -1,0 +1,58 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { supabase } from "@/lib/supabase";
+
+const accessToken = Astro.cookies.get("sb-access-token");
+const refreshToken = Astro.cookies.get("sb-refresh-token");
+
+if (!accessToken || !refreshToken) {
+  return Astro.redirect("/admin/signin");
+}
+
+let session;
+try {
+  session = await supabase.auth.setSession({
+    refresh_token: refreshToken.value,
+    access_token: accessToken.value,
+  });
+  if (session.error) {
+    Astro.cookies.delete("sb-access-token", {
+      path: "/",
+    });
+    Astro.cookies.delete("sb-refresh-token", {
+      path: "/",
+    });
+    return Astro.redirect("/admin/signin");
+  }
+} catch (error) {
+  Astro.cookies.delete("sb-access-token", {
+    path: "/",
+  });
+  Astro.cookies.delete("sb-refresh-token", {
+    path: "/",
+  });
+  return Astro.redirect("/admin/signin");
+}
+
+const email = session.data.user?.email;
+const roles = session.data.user?.role;
+const uid = session.data.user?.id;
+
+import { SecretsDataTable } from "@/components/STable";
+---
+
+<Layout title="dashboard">
+  <h1>Welcome - Role: {roles} - UID: {uid}</h1>
+  <p>We are happy to see you here</p>
+  <form action="/api/auth/signout">
+    <button type="submit">Sign out</button>
+  </form>
+  <div class="container mx-auto py-10">
+    <h1 class="text-2xl font-bold mb-6">Secrets Management</h1>
+    <SecretsDataTable
+      client:load
+      accessToken={accessToken.value}
+      refreshToken={refreshToken.value}
+    />
+  </div>
+</Layout>

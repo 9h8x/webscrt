@@ -1,11 +1,108 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from "../layouts/Layout.astro";
+import PostCard from "../components/PostCard.astro";
+import { supabase } from "../lib/supabase";
+import SortMenu from "../components/SortMenu.astro";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const authsess = await supabase.auth.getSession();
+const authuser = await supabase.auth.getUser();
+
+// Get sort parameter from URL
+const url = new URL(Astro.request.url);
+const sortBy = url.searchParams.get("sort") || "id_asc"; // Default to ID ascending
+
+// Determine sort field and direction based on parameter
+let sortField = "id";
+let sortDirection: "asc" | "desc" = "asc";
+
+// For date sorting, we'll apply a secondary sort by ID in descending order
+let query = supabase.from("secrets").select("*");
+
+switch (sortBy) {
+  case "date_desc":
+    // First sort by created_at descending, then by id descending
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
+    break;
+  case "date_asc":
+    // First sort by created_at ascending, then by id descending
+    query = query.order("created_at", { ascending: true }).order("id", { ascending: false });
+    break;
+  case "id_desc":
+    query = query.order("id", { ascending: false });
+    break;
+  case "id_asc":
+  default:
+    query = query.order("id", { ascending: true });
+    break;
+}
+
+const { data: posts, error } = await query;
+
+const { data: schools } = await supabase.from("schools").select("*");
+
+function getSchoolByID(id: number) {
+  if (!schools) {
+    return null;
+  }
+  return schools.find((school) => school.id === id);
+}
+
+if (error) {
+  console.error("Error al obtener publicaciones:", error);
+}
+
+import { buttonVariants } from "@/components/ui/button";
+import { User } from 'lucide-react';
+
+import TooltipWrapper from "@/components/TooltipWrapper";
+
+// Define sort options for the dropdown
+const sortOptions = [
+  { value: "date_desc", label: "Más reciente" },
+  { value: "date_asc", label: "Más antiguo" },
+];
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Secretos">
+  <div class="flex flex-col sm:flex-row w-full sm:space-x-2 space-y-2 sm:space-y-0">
+    <a
+      href="/create"
+      class={`${buttonVariants({ variant: "outline" })} flex-1 my-4 hover:bg-secondary transition-colors duration-300`}
+      >Nuevo post</a
+    >
+
+    <div class="flex items-center space-x-2 my-4">
+      <SortMenu currentSort={sortBy} options={sortOptions} />
+      
+      <a
+        href="/admin"
+        class={`${buttonVariants({ variant: "outline" })} w-10 hover:bg-secondary transition-colors duration-300`}
+        ><User /></a
+      >
+    </div>
+  </div>
+
+  <div class="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    {
+      posts && posts.length > 0 ? (
+        posts
+          .filter((post) => post.approved)
+          .map((post) => (
+            <PostCard
+              id={post.id}
+              content={post.content}
+              school={getSchoolByID(post.school)
+                ?.nombre.replace(/\b(escuela|secundaria)\b/gi, "")
+                .trim()
+                .toLowerCase()
+                .replace(/\b\w/g, (c) => c.toUpperCase())}
+              title={post.titulo}
+              created_at={post.created_at}
+            />
+          ))
+      ) : (
+        <p>Aún no hay secretos compartidos. ¡Sé el primero!</p>
+      )
+    }
+  </div>
 </Layout>

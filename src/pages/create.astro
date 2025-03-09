@@ -1,0 +1,13 @@
+---
+import Layout from "../layouts/Layout.astro";
+import PostForm from "../components/PostForm.astro";
+import { buttonVariants } from "@/components/ui/button";
+import { HomeIcon } from "lucide-react";
+---
+
+<Layout title="Crear">
+  <a href={`/`} class={`${buttonVariants({ variant: "outline" })} my-4 hover:bg-secondary transition-colors duration-300`}
+    ><HomeIcon /></a
+  >
+  <PostForm />
+</Layout>

@@ -1,0 +1,109 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { supabase } from "../../lib/supabase";
+import { HomeIcon, SchoolIcon, CalendarIcon } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+// Get the post ID from the URL
+const { id } = Astro.params;
+
+// Fetch the post data
+const { data: post, error } = await supabase
+  .from("secrets")
+  .select("*")
+  .eq("id", id)
+  .single();
+
+if (error) {
+  console.error("Error fetching post:", error);
+}
+
+// Check if post exists and is approved
+const postExists = post && post.approved;
+
+// Format date
+const formattedDate = postExists
+  ? new Date(post.created_at).toLocaleDateString()
+  : "";
+
+const { data: schools } = await supabase.from("schools").select("*");
+
+function getSchoolByID(id: number) {
+  if (!schools) {
+    return null;
+  }
+  const school = schools.find((school) => school.id === id);
+  return school || null;
+}
+
+// Get school name safely
+const schoolName = postExists
+  ? (() => {
+      const school = getSchoolByID(post.school);
+      if (!school) return "";
+
+      return school.nombre
+        .replace(/\b(escuela|secundaria)\b/gi, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    })()
+  : "";
+---
+
+<Layout title={postExists ? `Secreto | ${post.titulo}` : "Post no encontrado"}>
+  {
+    postExists ? (
+      <div>
+        <a href="/" class={`${buttonVariants({ variant: "outline" })} mt-4`}>
+          <HomeIcon />
+        </a>
+        <h1 class="text-center text-3xl font-semibold pb-4">{post.titulo}</h1>
+        <div class="text-center flex items-center justify-center space-x-4 text-sm">
+          <a class="flex items-center space-x-2">
+            <SchoolIcon className="size-5" />
+            <Badge variant={"outline"}>
+              {" "}
+              <span>{schoolName}</span>
+            </Badge>
+          </a>
+          <a class="flex items-center space-x-2">
+            <CalendarIcon className="size-5" />
+            <Badge variant={"outline"}>
+              {" "}
+              <span>{formattedDate}</span>
+            </Badge>
+          </a>
+        </div>
+
+        {post.image_url && (
+          <div class="my-4 flex justify-center">
+            <img
+              src={post.image_url || "/placeholder.svg"}
+              alt="Post image"
+              class="rounded-lg max-h-[500px] object-contain"
+            />
+          </div>
+        )}
+
+        <div class="post-content">
+          {post.content.split("\n").map((paragraph) => (
+            <p>{paragraph}</p>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div class="flex flex-col items-center justify-center min-h-screen">
+        <h1>Post no encontrado</h1>
+        <p>
+          El post que quieres ver no existe, fue eliminado o está pendiente de
+          aprobación.
+        </p>
+        <a href="/" class={`${buttonVariants({ variant: "outline" })} my-4`}>
+          <HomeIcon />
+          Volver al inicio
+        </a>
+      </div>
+    )
+  }
+</Layout>
