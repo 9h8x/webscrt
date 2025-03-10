@@ -56,3 +56,19 @@ import { SecretsDataTable } from "@/components/STable";
     />
   </div>
 </Layout>
+
+<script>
+  const alertDialog = document.querySelector('[data-slot="alert-dialog"]');
+  const body = document.body;
+
+  if (alertDialog) {
+    alertDialog.addEventListener("open", () => {
+      body.classList.add("body-no-scroll");
+    });
+
+    alertDialog.addEventListener("close", () => {
+      body.classList.remove("body-no-scroll");
+    });
+  }
+</script>
+

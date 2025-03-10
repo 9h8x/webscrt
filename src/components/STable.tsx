@@ -334,7 +334,7 @@ export function SecretsDataTable({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-destructive hover:bg-destructive/90"
                     onClick={async (e) => {
                       e.preventDefault();
                       try {

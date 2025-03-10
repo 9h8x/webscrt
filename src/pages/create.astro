@@ -11,3 +11,18 @@ import { HomeIcon } from "lucide-react";
   >
   <PostForm />
 </Layout>
+
+<script>
+  const drawer = document.querySelector('[data-slot="drawer"]');
+  const body = document.body;
+
+  if (drawer) {
+    drawer.addEventListener("open", () => {
+      body.classList.add("body-no-scroll");
+    });
+
+    drawer.addEventListener("close", () => {
+      body.classList.remove("body-no-scroll");
+    });
+  }
+</script>

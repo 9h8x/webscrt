@@ -4,6 +4,8 @@ import { supabase } from "../../lib/supabase";
 import { HomeIcon, SchoolIcon, CalendarIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getSchoolByID } from "@/lib/utils"; // Import the utility function
+
 // Get the post ID from the URL
 const { id } = Astro.params;
 
@@ -28,26 +30,13 @@ const formattedDate = postExists
 
 const { data: schools } = await supabase.from("schools").select("*");
 
-function getSchoolByID(id: number) {
-  if (!schools) {
-    return null;
-  }
-  const school = schools.find((school) => school.id === id);
-  return school || null;
-}
-
 // Get school name safely
 const schoolName = postExists
-  ? (() => {
-      const school = getSchoolByID(post.school);
-      if (!school) return "";
-
-      return school.nombre
-        .replace(/\b(escuela|secundaria)\b/gi, "")
-        .trim()
-        .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    })()
+  ? getSchoolByID(post.school, schools)
+      ?.nombre.replace(/\b(escuela|secundaria)\b/gi, "")
+      .trim()
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase()) || "" // Fallback to an empty string
   : "";
 ---
 
