@@ -13,17 +13,11 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { Trash2, X, Loader2 } from "lucide-react";
+import { Trash2, X, Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -53,6 +47,24 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const fetchSchools = async () => {
+  try {
+    const { data, error } = await supabase.from("schools").select("*");
+    if (error) {
+      console.error("Error fetching schools:", error);
+      throw error;
+    }
+    return data;
+  } catch (err: any) {
+    console.error("Error fetching schools:", err);
+    throw err;
+  }
+};
+
+const schools = await fetchSchools();
+
+import { getSchoolByID } from "@/lib/utils";
 
 // Define the Secret type based on your database schema
 export type Secret = {
@@ -194,15 +206,8 @@ export function SecretsDataTable({
   // Define columns for the data table
   const columns: ColumnDef<Secret>[] = [
     {
-      accessorKey: "id",
-      header: "ID",
-      cell: ({ row }) => (
-        <div className="font-medium">{row.getValue("id")}</div>
-      ),
-    },
-    {
       accessorKey: "created_at",
-      header: "Created At",
+      header: "Creado",
       cell: ({ row }) => {
         const date = new Date(row.getValue("created_at"));
         return <div>{format(date, "PPP p")}</div>;
@@ -210,7 +215,7 @@ export function SecretsDataTable({
     },
     {
       accessorKey: "titulo",
-      header: "Title",
+      header: "Titulo",
       cell: ({ row }) => (
         <div className="max-w-[200px] truncate font-medium">
           {row.getValue("titulo")}
@@ -218,20 +223,16 @@ export function SecretsDataTable({
       ),
     },
     {
-      accessorKey: "content",
-      header: "Content",
-      cell: ({ row }) => (
-        <div className="max-w-[300px] truncate">{row.getValue("content")}</div>
-      ),
-    },
-    {
       accessorKey: "school",
-      header: "School ID",
-      cell: ({ row }) => <div>{row.getValue("school")}</div>,
+      header: "Escuela",
+      cell: ({ row }) => {
+        const school = getSchoolByID(row.getValue("school"), schools);
+        return <div>{school?.nombre ? school.nombre : "No School Found"}</div>;
+      },
     },
     {
       accessorKey: "approved",
-      header: "Approved",
+      header: "Estado",
       cell: ({ row }) => {
         const id = row.original.id;
         const isApproved = row.getValue("approved") as boolean;
@@ -277,14 +278,14 @@ export function SecretsDataTable({
                 variant="outline"
                 className="bg-green-50 text-green-700 border-green-200"
               >
-                Approved
+                Aprovado
               </Badge>
             ) : (
               <Badge
                 variant="outline"
                 className="bg-red-50 text-red-700 border-red-200"
               >
-                Not Approved
+                No Aprovado
               </Badge>
             )}
           </div>
@@ -363,6 +364,25 @@ export function SecretsDataTable({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <a
+                    href={`/post/${secret.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`${buttonVariants({
+                      variant: "outline",
+                    })} hover:bg-secondary transition-all duration-300 hover:scale-105`}
+                  >
+                    <ExternalLink />
+                  </a>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Ver</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         );
       },
@@ -411,44 +431,13 @@ export function SecretsDataTable({
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter by title..."
+          placeholder="Buscar por titulo"
           value={(table.getColumn("titulo")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("titulo")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuItem
-                    key={column.id}
-                    className="capitalize"
-                    onSelect={(e) => e.preventDefault()}
-                  >
-                    <div
-                      className="flex items-center space-x-2"
-                      onClick={() =>
-                        column.toggleVisibility(!column.getIsVisible())
-                      }
-                    >
-                      <Switch checked={column.getIsVisible()} />
-                      <span>{column.id}</span>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       <div className="rounded-md border">
         <Table>

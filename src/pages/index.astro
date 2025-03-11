@@ -7,19 +7,17 @@ import { getSchoolByID } from "../lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { User, ChevronLeft, ChevronRight } from "lucide-react";
 
-// Client-side detection of screen size will be handled with JS
-// For SSR, we'll use default values and adjust on client
+// Constants for items per page
 const ITEMS_PER_PAGE = {
-  mobile: 6,    // 6 items for mobile (1 column × 6 rows)
-  tablet: 8,    // 8 items for tablet (2 columns × 4 rows)
-  desktop: 12,  // 12 items for desktop (3 columns × 4 rows)
+  mobile: 6,
+  tablet: 8,
+  desktop: 12,
 };
 
 // Get URL parameters
 const url = new URL(Astro.request.url);
 const currentPage = parseInt(url.searchParams.get("page") || "1");
 const sortBy = url.searchParams.get("sort") || "date_desc";
-// Default to desktop items per page for server-side rendering
 const initialItemsPerPage = ITEMS_PER_PAGE.desktop;
 
 // Calculate range for Supabase query
@@ -35,14 +33,10 @@ let query = supabase
 
 switch (sortBy) {
   case "date_desc":
-    query = query
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false });
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
     break;
   case "date_asc":
-    query = query
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: false });
+    query = query.order("created_at", { ascending: true }).order("id", { ascending: false });
     break;
   case "id_desc":
     query = query.order("id", { ascending: false });
@@ -51,9 +45,7 @@ switch (sortBy) {
     query = query.order("id", { ascending: true });
     break;
   default:
-    query = query
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false });
+    query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
     break;
 }
 
@@ -62,14 +54,11 @@ const [postsResult, schoolsResult] = await Promise.all([
   query,
   supabase.from("schools").select("*"),
 ]);
-
+const schools = schoolsResult.data || [];
 const posts = postsResult.data || [];
 const totalPosts = postsResult.count || 0;
-// Initial totalPages calculation (will be updated client-side)
 const totalPages = Math.ceil(totalPosts / initialItemsPerPage);
-const schools = schoolsResult.data || [];
 
-// Handle errors
 const error = postsResult.error || schoolsResult.error;
 
 // Define sort options for the dropdown
@@ -85,24 +74,21 @@ const getPaginationUrl = (page: number, sort: string) => {
   newUrl.searchParams.set("sort", sort);
   return newUrl.toString();
 };
-
-// We'll define this function but NOT use it during SSR
-// It will only be used client-side in the script tag
-const getRowIndex = (index, columns) => {
-  return Math.floor(index / columns);
-};
 ---
 
 <Layout title="Secretos">
   <div class="container mx-auto px-4 py-8">
-    <div class="flex items-center gap-2 mb-6 opacity-0 animate-fadeIn" style="animation-delay: 100ms; animation-fill-mode: forwards;">
+    <!-- Header Section -->
+    <div class="flex items-center gap-2 mb-6">
       <a
         href="/create"
         class={`${buttonVariants({ variant: "outline" })} flex-grow hover:bg-secondary transition-all duration-300 hover:scale-105`}
       >
         Nuevo post
       </a>
-      <SortMenu currentSort={sortBy} options={sortOptions} />
+      <div class="relative z-10">
+        <SortMenu currentSort={sortBy} options={sortOptions} />
+      </div>
       <a
         href="/admin"
         class={`${buttonVariants({ variant: "outline" })} w-10 h-10 p-0 flex items-center justify-center hover:bg-secondary transition-all duration-300 hover:scale-105`}
@@ -112,266 +98,76 @@ const getRowIndex = (index, columns) => {
       </a>
     </div>
 
-    {
-      error && (
-        <div class="bg-destructive/15 text-destructive p-4 rounded-md mb-6 opacity-0 animate-slideIn" style="animation-delay: 200ms; animation-fill-mode: forwards;">
-          <p>
-            Error al cargar los secretos. Por favor, intenta de nuevo más tarde.
-          </p>
-        </div>
-      )
-    }
+    <!-- Error Message -->
+    {error && (
+      <div class="bg-destructive/15 text-destructive p-4 rounded-md mb-6">
+        <p>Error al cargar los secretos. Por favor, intenta de nuevo más tarde.</p>
+      </div>
+    )}
 
-    {
-      !error && (
-        <div
-          id="posts-container"
-          class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+    <!-- Posts Grid -->
+    {!error && (
+      <div id="posts-container" class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {posts.map((post) => {
+          const school = getSchoolByID(post.school, schools);
+          const schoolName = school
+            ? school.nombre
+                .replace(/\b(escuela|secundaria)\b/gi, "")
+                .trim()
+                .toLowerCase()
+                .replace(/\b\w/g, (c) => c.toUpperCase())
+            : "Escuela no encontrada";
+
+          return (
+            <div class="post-item">
+              <PostCard
+                id={post.id}
+                content={post.content}
+                school={schoolName}
+                title={post.titulo}
+                created_at={post.created_at}
+              />
+            </div>
+          );
+        })}
+      </div>
+    )}
+
+    <!-- Pagination -->
+    {totalPosts > 0 && (
+      <div class="flex justify-center items-center mt-8 gap-4">
+        <a
+          href={currentPage > 1 ? getPaginationUrl(currentPage - 1, sortBy) : "#"}
+          class={`${buttonVariants({ variant: "outline" })} flex items-center ${
+            currentPage <= 1 ? "pointer-events-none opacity-50" : ""
+          }`}
         >
-          {posts.map((post, index) => {
-            const school = getSchoolByID(post.school, schools);
-            const schoolName = school
-              ? school.nombre
-                  .replace(/\b(escuela|secundaria)\b/gi, "")
-                  .trim()
-                  .toLowerCase()
-                  .replace(/\b\w/g, (c) => c.toUpperCase())
-              : "Escuela no encontrada";
-            
-            // Use a fixed animation delay instead of calculating based on window
-            // We'll update these with proper values client-side in the script tag
-            const baseDelay = 300 + index * 100;
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Anterior
+        </a>
+        <span class="text-sm text-muted-foreground">
+          Página {currentPage} de {totalPages}
+        </span>
+        <a
+          href={currentPage < totalPages ? getPaginationUrl(currentPage + 1, sortBy) : "#"}
+          class={`${buttonVariants({ variant: "outline" })} flex items-center ${
+            currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
+          }`}
+        >
+          Siguiente
+          <ChevronRight className="h-4 w-4 ml-2" />
+        </a>
+      </div>
+    )}
 
-            return (
-              <div
-                class="opacity-0 animate-fadeUp post-item"
-                data-index={index}
-                style={`animation-delay: ${baseDelay}ms; animation-fill-mode: forwards;`}
-              >
-                <PostCard
-                  id={post.id}
-                  content={post.content}
-                  school={schoolName}
-                  title={post.titulo}
-                  created_at={post.created_at}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )
-    }
-
-    {
-      totalPosts > 0 && (
-        <div class="flex justify-center items-center mt-8 gap-4 opacity-0 animate-fadeIn" style="animation-delay: 800ms; animation-fill-mode: forwards;">
-          <a
-            href={currentPage > 1 ? getPaginationUrl(currentPage - 1, sortBy) : "#"}
-            id="prev-page-link"
-            class={`${buttonVariants({ variant: "outline" })} flex items-center transition-all duration-300 hover:translate-x-[-2px] ${
-              currentPage <= 1 ? "pointer-events-none opacity-50" : ""
-            }`}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Anterior
-          </a>
-          <span id="page-info" class="text-sm text-muted-foreground">
-            Página <span id="current-page">{currentPage}</span> de <span id="total-pages">{totalPages}</span>
-          </span>
-          <a
-            href={currentPage < totalPages ? getPaginationUrl(currentPage + 1, sortBy) : "#"}
-            id="next-page-link"
-            class={`${buttonVariants({ variant: "outline" })} flex items-center transition-all duration-300 hover:translate-x-[2px] ${
-              currentPage >= totalPages ? "pointer-events-none opacity-50" : ""
-            }`}
-          >
-            Siguiente
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </a>
-        </div>
-      )
-    }
-
-    {
-      totalPosts === 0 && (
-        <div class="text-center py-12 opacity-0 animate-fadeIn" style="animation-delay: 300ms; animation-fill-mode: forwards;">
-          <p class="text-lg text-muted-foreground mb-4">
-            Aún no hay secretos compartidos.
-          </p>
-          <a href="/create" class={`${buttonVariants({ variant: "outline" })} transition-all duration-300 hover:scale-105`}>
-            ¡Sé el primero en compartir!
-          </a>
-        </div>
-      )
-    }
+    <!-- No Posts Message -->
+    {totalPosts === 0 && (
+      <div class="text-center py-12">
+        <p class="text-lg text-muted-foreground mb-4">Aún no hay secretos compartidos.</p>
+        <a href="/create" class={`${buttonVariants({ variant: "outline" })} transition-all duration-300 hover:scale-105`}>
+          ¡Sé el primero en compartir!
+        </a>
+      </div>
+    )}
   </div>
-
-  <style>
-    /* Base animations */
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
-    }
-
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateX(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    /* Animation classes */
-    .animate-fadeIn {
-      animation: fadeIn 0.6s ease-out;
-    }
-
-    .animate-fadeUp {
-      animation: fadeUp 0.8s ease-out;
-    }
-
-    .animate-slideIn {
-      animation: slideIn 0.5s ease-out;
-    }
-
-    /* Hover effects */
-    a:not(.pointer-events-none) {
-      transition: transform 0.2s ease-out;
-    }
-
-    #posts-container > div {
-      transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
-    }
-
-    #posts-container > div:hover {
-      transform: translateY(-5px);
-    }
-  </style>
-
-  <script define:vars={ totalPosts }>
-    // Store pagination constants
-    const ITEMS_PER_PAGE = {
-      mobile: 6,//getrowindex, window.innerWidth >= 1024 ? 3 : (window.innerWidth >= 640 ? 2 : 1))); 6,    // 6 items for mobile (1 column × 6 rows)
-      tablet: 8,    // 8 items for tablet (2 columns × 4 rows)
-      desktop: 12,  // 12 items for desktop (3 columns × 4 rows)
-    };
-
-    // Get current page from URL
-    const url = new URL(window.location.href);
-    const currentPage = parseInt(url.searchParams.get("page") || "1");
-    const sortBy = url.searchParams.get("sort") || "date_desc";
-    
-    // Total posts from server
-    const totalPosts = JSON.stringify(totalPosts)
-
-    // Update pagination based on screen size
-    function updatePagination() {
-      let itemsPerPage;
-      
-      // Determine items per page based on screen width
-      if (window.innerWidth >= 1024) {
-        itemsPerPage = ITEMS_PER_PAGE.desktop;
-      } else if (window.innerWidth >= 640) {
-        itemsPerPage = ITEMS_PER_PAGE.tablet;
-      } else {
-        itemsPerPage = ITEMS_PER_PAGE.mobile;
-      }
-      
-      // Recalculate total pages
-      const totalPages = Math.ceil(totalPosts / itemsPerPage);
-      
-      // Update total pages display
-      const totalPagesEl = document.getElementById("total-pages");
-      if (totalPagesEl) {
-        totalPagesEl.textContent = totalPages.toString();
-      }
-      
-      // Update pagination links
-      const prevLink = document.getElementById("prev-page-link");
-      const nextLink = document.getElementById("next-page-link");
-      
-      if (prevLink) {
-        if (currentPage <= 1) {
-          prevLink.classList.add("pointer-events-none", "opacity-50");
-          prevLink.href = "#";
-        } else {
-          prevLink.classList.remove("pointer-events-none", "opacity-50");
-          prevLink.href = getPaginationUrl(currentPage - 1, sortBy);
-        }
-      }
-      
-      if (nextLink) {
-        if (currentPage >= totalPages) {
-          nextLink.classList.add("pointer-events-none", "opacity-50");
-          nextLink.href = "#";
-        } else {
-          nextLink.classList.remove("pointer-events-none", "opacity-50");
-          nextLink.href = getPaginationUrl(currentPage + 1, sortBy);
-        }
-      }
-    }
-    
-    // Helper function to generate pagination URL
-    function getPaginationUrl(page, sort) {
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.set("page", page.toString());
-      newUrl.searchParams.set("sort", sort);
-      return newUrl.toString();
-    }
-    
-    // Function to calculate row index for animation delay
-    function getRowIndex(index, columns) {
-      return Math.floor(index / columns);
-    }
-    
-    // Function to update animation delays based on screen size
-    function updateRowIndices() {
-      const container = document.getElementById('posts-container');
-      if (!container) return;
-      
-      const items = document.querySelectorAll('.post-item');
-      let columns = 1;
-      
-      if (window.innerWidth >= 1024) {
-        columns = 3;
-      } else if (window.innerWidth >= 640) {
-        columns = 2;
-      }
-      
-      items.forEach(item => {
-        const index = parseInt(item.dataset.index, 10);
-        const rowIndex = getRowIndex(index, columns);
-        item.style.animationDelay = `${300 + rowIndex * 200}ms`;
-      });
-    }
-    
-    // Update pagination and animations on load and resize
-    document.addEventListener('DOMContentLoaded', () => {
-      updatePagination();
-      updateRowIndices();
-    });
-    
-    window.addEventListener('resize', () => {
-      updatePagination();
-      updateRowIndices();
-    });
-  </script>
 </Layout>

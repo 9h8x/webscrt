@@ -5,7 +5,7 @@ import { HomeIcon, SchoolIcon, CalendarIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getSchoolByID } from "@/lib/utils"; // Import the utility function
-
+import DialogImage from "@/components/ImagePopup";
 // Get the post ID from the URL
 const { id } = Astro.params;
 
@@ -20,66 +20,122 @@ if (error) {
   console.error("Error fetching post:", error);
 }
 
-// Check if post exists and is approved
-const postExists = post && post.approved;
+// Check if the user is authenticated
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+const isAuthenticated = !!session;
+
+// Check if post exists and should be displayed
+// Post should be displayed if:
+// 1. It exists AND (it's approved OR the user is an admin)
+const shouldDisplayPost = post && (post.approved || isAuthenticated);
 
 // Format date
-const formattedDate = postExists
+const formattedDate = post
   ? new Date(post.created_at).toLocaleDateString()
   : "";
 
 const { data: schools } = await supabase.from("schools").select("*");
 
 // Get school name safely
-const schoolName = postExists
+const schoolName = post
   ? getSchoolByID(post.school, schools)
       ?.nombre.replace(/\b(escuela|secundaria)\b/gi, "")
       .trim()
       .toLowerCase()
       .replace(/\b\w/g, (c) => c.toUpperCase()) || "" // Fallback to an empty string
   : "";
+
+const { data: images } = await supabase
+  .from("secret_images")
+  .select("*")
+  .eq("secret_id", id);
+
+const imageArray = images?.map((item) => item.urls.publicUrl) || [];
+
+// Function to chunk the array into groups of 4 (for 4 columns)
+// and limit to 3 rows (12 images total)
+const chunkArray = (arr, size) => {
+  const chunkedArr = [];
+  const limitedArr = arr.slice(0, 12); // Limit to 12 images (3 rows of 4)
+  for (let i = 0; i < limitedArr.length; i += size) {
+    chunkedArr.push(limitedArr.slice(i, i + size));
+  }
+  return chunkedArr;
+};
+
+const imageRows = chunkArray(imageArray, 4);
+const hasMoreImages = imageArray.length > 12;
 ---
 
-<Layout title={postExists ? `Secreto | ${post.titulo}` : "Post no encontrado"}>
+<Layout
+  title={shouldDisplayPost ? `Secreto | ${post.titulo}` : "Post no encontrado"}
+>
   {
-    postExists ? (
-      <div>
-        <a href="/" class={`${buttonVariants({ variant: "outline" })} mt-4`}>
-          <HomeIcon />
-        </a>
-        <h1 class="text-center text-3xl font-semibold pb-4">{post.titulo}</h1>
-        <div class="text-center flex items-center justify-center space-x-4 text-sm">
-          <a class="flex items-center space-x-2">
-            <SchoolIcon className="size-5" />
-            <Badge variant={"outline"}>
-              {" "}
-              <span>{schoolName}</span>
-            </Badge>
+    shouldDisplayPost ? (
+      <div class="flex flex-col min-h-[calc(100vh-4rem)]">
+        <div class="flex-grow">
+          <a href="/" class={`${buttonVariants({ variant: "outline" })} mt-4`}>
+            <HomeIcon />
           </a>
-          <a class="flex items-center space-x-2">
-            <CalendarIcon className="size-5" />
-            <Badge variant={"outline"}>
-              {" "}
-              <span>{formattedDate}</span>
-            </Badge>
-          </a>
+          <h1 class="text-center text-3xl font-semibold pb-4">{post.titulo}</h1>
+          <div class="text-center flex items-center justify-center space-x-4 text-sm">
+            <a class="flex items-center space-x-2">
+              <SchoolIcon className="size-5" />
+              <Badge variant={"outline"}>
+                <span>{schoolName}</span>
+              </Badge>
+            </a>
+            <a class="flex items-center space-x-2">
+              <CalendarIcon className="size-5" />
+              <Badge variant={"outline"}>
+                <span>{formattedDate}</span>
+              </Badge>
+            </a>
+          </div>
+
+          {isAuthenticated && !post.approved && (
+            <div class="bg-yellow-100 text-yellow-800 p-4 rounded-md my-4">
+              <p class="text-center font-medium">
+                Este post no está aprobado. Solo los administradores pueden
+                verlo.
+              </p>
+            </div>
+          )}
+
+          <div class="post-content my-6">
+            {post.content.split("\n").map((paragraph) => (
+              <p class="mb-4">{paragraph}</p>
+            ))}
+          </div>
         </div>
 
-        {post.image_url && (
-          <div class="my-4 flex justify-center">
-            <img
-              src={post.image_url || "/placeholder.svg"}
-              alt="Post image"
-              class="rounded-lg max-h-[500px] object-contain"
-            />
+        {/* Images section at the bottom - 4 columns, 3 rows max */}
+        {imageArray.length > 0 && (
+          <div class=" pt-6 border-t mt-60">
+            <h2 class="text-xl font-medium mb-4">
+              Imágenes {imageArray.length > 0 && `(${imageArray.length})`}
+            </h2>
+
+            <div class="space-y-4">
+              {imageRows.map((row) => (
+                <div class="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {row.map((image) => (
+                    <DialogImage imageUrl={image} client:load />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {hasMoreImages && (
+              <p class="text-center text-muted-foreground mt-4">
+                ... y {imageArray.length - 12} imágenes más
+              </p>
+            )}
           </div>
         )}
-
-        <div class="post-content">
-          {post.content.split("\n").map((paragraph) => (
-            <p>{paragraph}</p>
-          ))}
-        </div>
       </div>
     ) : (
       <div class="flex flex-col items-center justify-center min-h-screen">
@@ -96,3 +152,9 @@ const schoolName = postExists
     )
   }
 </Layout>
+
+<style>
+  .post-content p {
+    margin-bottom: 1rem;
+  }
+</style>

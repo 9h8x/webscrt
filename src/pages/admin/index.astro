@@ -1,7 +1,8 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { LoginForm } from "@/components/LForm";
-
+import { HomeIcon } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 const { cookies, redirect } = Astro;
 
 const accessToken = cookies.get("sb-access-token");
@@ -13,8 +14,14 @@ if (accessToken && refreshToken) {
 ---
 
 <Layout title="Sign in">
+  <a
+    href="/"
+    class={`${buttonVariants({ variant: "outline" })} absolute left-4 top-4 md:left-8 md:top-8 hover:bg-secondary transition-colors duration-300`}
+  >
+    <HomeIcon />
+  </a>
   <div
-    class="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-8"
+    class="container flex items-center justify-center min-h-[calc(100vh-4rem)]"
   >
     <div class="w-full max-w-md">
       <LoginForm client:load />
